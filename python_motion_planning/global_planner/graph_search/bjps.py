@@ -111,11 +111,6 @@ class BJPS(AStar):
         new_node.parent = node.current
         new_node.h = self.h(new_node, self.goal)
 
-        # check if the new node is within the boundary
-        dist = self.dist(new_node, jump_point)
-        direction_dist = self.dist(motion, Node((0, 0), None, 1, None))
-        if dist + direction_dist > self.bound:
-            return new_node 
 
         # hit the obstacle
         if new_node.current in self.obstacles:
@@ -132,6 +127,12 @@ class BJPS(AStar):
             y_dir = Node((0, motion.y), None, 1, None)
             if self.jump(new_node, x_dir, jump_point) or self.jump(new_node, y_dir, jump_point):
                 return new_node
+        
+        # check if the new node is within the boundary
+        dist = self.dist(new_node, jump_point)
+        direction_dist = self.dist(motion, Node((0, 0), None, 1, None))
+        if dist + direction_dist > self.bound:
+            return new_node 
             
         # if exists forced neighbor
         if self.detectForceNeighbor(new_node, motion):
