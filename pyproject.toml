@@ -15,7 +15,6 @@ dependencies = [
     "matplotlib",
     "cvxopt",
 ]
-repository = {type = "git", url = "https://github.com/ai-winter/python_motion_planning.git"}
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
