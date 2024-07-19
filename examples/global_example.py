@@ -30,6 +30,7 @@ if __name__ == '__main__':
     # planner = search_factory("lazy_theta_star", start=start, goal=goal, env=env)
     # planner = search_factory("s_theta_star", start=start, goal=goal, env=env)
     # planner = search_factory("jps", start=start, goal=goal, env=env)
+    planner = search_factory("bjps", start=start, goal=goal, env=env)
     # planner = search_factory("d_star", start=start, goal=goal, env=env)
     # planner = search_factory("lpa_star", start=start, goal=goal, env=env)
     # planner = search_factory("d_star_lite", start=start, goal=goal, env=env)
@@ -37,7 +38,7 @@ if __name__ == '__main__':
     #                             max_edge_len=10.0, inflation_r=1.0)
 
     # animation
-    # planner.run()
+    planner.run()
 
     # ========================================================
 
@@ -64,5 +65,5 @@ if __name__ == '__main__':
     evolutionary search
     '''
     # planner = search_factory("aco", start=start, goal=goal, env=env)
-    planner = search_factory("pso", start=start, goal=goal, env=env)
-    planner.run()
+    # planner = search_factory("pso", start=start, goal=goal, env=env)
+    # planner.run()

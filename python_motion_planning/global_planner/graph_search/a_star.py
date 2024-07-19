@@ -121,4 +121,7 @@ class AStar(GraphSearcher):
         Running both planning and animation.
         """
         cost, path, expand = self.plan()
+        print("cost: ", cost)
+        print("path: ", path)
+        print("expand: ", expand)
         self.plot.animation(path, str(self), cost, expand)

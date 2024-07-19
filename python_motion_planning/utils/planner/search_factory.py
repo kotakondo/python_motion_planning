@@ -19,6 +19,8 @@ class SearchFactory(object):
             return GBFS(**config)
         elif planner_name == "jps":
             return JPS(**config)
+        elif planner_name == "bjps":
+            return BJPS(**config)
         elif planner_name == "d_star":
             return DStar(**config)
         elif planner_name == "lpa_star":
