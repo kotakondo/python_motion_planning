@@ -5,6 +5,8 @@
 @update: 2024.6.23
 """
 import heapq
+import math
+import numpy as np
 
 from .graph_search import GraphSearcher
 from python_motion_planning.utils import Env, Node
@@ -32,6 +34,10 @@ class AStar(GraphSearcher):
     """
     def __init__(self, start: tuple, goal: tuple, env: Env, heuristic_type: str = "euclidean") -> None:
         super().__init__(start, goal, env, heuristic_type)
+
+        # only for BJPS
+        # define the maximum search depth (bound)
+        self.jump_bound = 5.0 # hard code for now
 
     def __str__(self) -> str:
         return "A*"
@@ -123,5 +129,81 @@ class AStar(GraphSearcher):
         cost, path, expand = self.plan()
         print("cost: ", cost)
         print("path: ", path)
-        print("expand: ", expand)
-        self.plot.animation(path, str(self), cost, expand)
+
+        # dynamic animation
+
+        # flip the path list
+        path = path[::-1]
+
+        # get interpolated path 
+        # currently the path only contrains the nodes; we need to interpolate the path
+        interpolated_path = []
+        interpolated_path.append(path[0])
+        for current_node_idx, current_node in enumerate(path[:-1]):
+
+            next_node = path[current_node_idx + 1]
+
+            # determine the direction of the path
+            direction = (next_node[0] - current_node[0], next_node[1] - current_node[1])
+            
+            # check if the path is horizontal, vertical, or diagonal
+            motion = (direction[0] // abs(direction[0]) if direction[0] != 0 else 0, direction[1] // abs(direction[1]) if direction[1] != 0 else 0)
+
+            # initialize interpolated node
+            interpolated_node = current_node
+
+            # add interpolated nodes until the next node
+            while interpolated_node != next_node:
+                interpolated_node = (interpolated_node[0] + motion[0], interpolated_node[1] + motion[1])
+                interpolated_path.append(interpolated_node)
+        
+        print("interpolated_path: ", interpolated_path)
+
+        # visualization colors
+        # generate random colors
+        colors = [np.random.rand(3,) for _ in range(100)]
+
+        # get interval path
+        interval_paths = []
+        while len(interpolated_path) > 0:
+
+            # get the interval index
+            dist = 0
+            for i in range(len(interpolated_path) - 1):
+
+                # get the next node
+                current_node = interpolated_path[i]
+                next_node = interpolated_path[i + 1]
+
+                # check if the next node is in the same interval
+                dist = dist + math.sqrt((next_node[0] - current_node[0]) ** 2 + (next_node[1] - current_node[1]) ** 2)
+                if dist > self.jump_bound:
+                    
+                    # get this interval path
+                    interval_paths.append(interpolated_path[:i+1])
+
+                    # remove the interval path from the interpolated path
+                    interpolated_path = interpolated_path[i:]
+
+                    break
+
+                if next_node == interpolated_path[-1]:
+                        
+                    # get this interval path
+                    interval_paths.append(interpolated_path)
+
+                    # remove the interval path from the interpolated path
+                    interpolated_path = []
+
+                    break
+
+            # debug
+            self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+
+        print("interval_paths: ", interval_paths)
+
+        # debug
+        self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+
+        # static animation
+        # self.plot.animation(path, str(self), cost, expand)

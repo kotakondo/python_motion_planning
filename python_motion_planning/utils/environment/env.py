@@ -49,6 +49,7 @@ class Grid(Env):
                         Node((0, 1),  None, 1, None), Node((1, 1),   None, sqrt(2), None),
                         Node((1, 0),  None, 1, None), Node((1, -1),  None, sqrt(2), None),
                         Node((0, -1), None, 1, None), Node((-1, -1), None, sqrt(2), None)]
+        
         # obstacles
         self.obstacles = None
         self.obstacles_tree = None
@@ -70,7 +71,7 @@ class Grid(Env):
             obstacles.add((x - 1, i))
 
         # user-defined obstacles        
-        for i in range(10, 21):
+        for i in range(5, 21):
             obstacles.add((i, 15))
         for i in range(15):
             obstacles.add((20, i))
@@ -79,12 +80,49 @@ class Grid(Env):
         for i in range(16):
             obstacles.add((40, i))
 
+        # dynamic obstacles
+        for i in range(1, 11):
+            obstacles.add((25, i))
+            
         self.obstacles = obstacles
         self.obstacles_tree = cKDTree(np.array(list(obstacles)))
 
-    def update(self, obstacles):
-        self.obstacles = obstacles 
-        self.obstacles_tree = cKDTree(np.array(list(obstacles)))
+    def handle_dynamic_obstacles(self, interval_indecies: list) -> None:
+        """
+        remove the dynamic obstacles
+        """
+
+        # clean up the column of dynamic obstacles
+        for i in range(1, self.y_range-1):
+            if (25, i) in self.obstacles:        
+                self.obstacles.remove((25, i))
+        
+        # add dynamic obstacles according to the interval_indecies
+        for interval_index in interval_indecies:
+            for i in range(interval_index+1, min(interval_index+11, self.y_range-1)):
+                self.obstacles.add((25, i))
+
+    def update(self, interval_indecies: list) -> None:
+        self.handle_dynamic_obstacles(interval_indecies)
+        self.obstacles_tree = cKDTree(np.array(list(self.obstacles)))
+
+    def get_obstacles_from_interval_index(self, interval_index: int) -> set:
+        
+        # copy obstacles
+        static_obstacles = self.obstacles.copy()
+        
+        # clean up the column of dynamic obstacles
+        for i in range(1, self.y_range-1):
+            if (25, i) in static_obstacles:        
+                static_obstacles.remove((25, i))
+
+        dynamic_obstacles = set()
+        
+        # add dynamic obstacles according to the interval_index
+        for i in range(interval_index+1, min(interval_index+11, self.y_range-1)):
+            dynamic_obstacles.add((25, i))
+
+        return dynamic_obstacles, static_obstacles
 
 
 class Map(Env):

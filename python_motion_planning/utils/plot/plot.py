@@ -38,8 +38,35 @@ class Plot:
             self.plotEllipse(ellipse)
 
         plt.show()
+    
+    def dynamic_animation(self, paths: list[list], name: str, cost: float = None, expand: list = None, colors: list = None, history_pose: list = None,
+                  predict_path: list = None, lookahead_pts: list = None, cost_curve: list = None,
+                  ellipse: np.ndarray = None) -> None:
+        
+        name = name + "\ncost: " + str(cost) if cost else name
 
-    def plotEnv(self, name: str) -> None:
+        for path_idx, path in enumerate(paths):
+
+            self.plotEnv(name, path_idx, colors[path_idx])
+            if expand is not None:
+                self.plotExpand(expand)
+            if history_pose is not None:
+                self.plotHistoryPose(history_pose, predict_path, lookahead_pts)
+            if path is not None:
+                self.plotPath(path, path_color=colors[path_idx])
+
+            if cost_curve:
+                plt.figure("cost curve")
+                self.plotCostCurve(cost_curve, name)
+
+            if ellipse is not None:
+                self.plotEllipse(ellipse)
+
+        # plt.show()
+        # save the figure
+        plt.savefig(f"/home/kkondo/Downloads/tmp/figure{len(paths)}.png")
+
+    def plotEnv(self, name: str, interval_idx: int = None, color = "black") -> None:
         '''
         Plot environment with static obstacles.
 
@@ -51,9 +78,23 @@ class Plot:
         plt.plot(self.goal.x, self.goal.y, marker="s", color="#1155cc")
 
         if isinstance(self.env, Grid):
-            obs_x = [x[0] for x in self.env.obstacles]
-            obs_y = [x[1] for x in self.env.obstacles]
-            plt.plot(obs_x, obs_y, "sk")
+            
+            if interval_idx is not None:
+                plt.title(name + "\ninterval index: " + str(interval_idx))
+                dynamic_obstacles, static_obstacles = self.env.get_obstacles_from_interval_index(interval_idx)
+                
+                # static obstacles
+                obs_x = [x[0] for x in static_obstacles]
+                obs_y = [x[1] for x in static_obstacles]
+                plt.plot(obs_x, obs_y, "sk")
+
+                # dynamic obstacles
+                obs_x = [x[0] for x in dynamic_obstacles]
+                obs_y = [x[1] for x in dynamic_obstacles]
+                plt.plot(obs_x, obs_y, color=color, marker='s', alpha=0.5)
+            else:
+                obs_x = [x[0] for x in self.env.obstacles]
+                obs_y = [x[1] for x in self.env.obstacles]
 
         if isinstance(self.env, Map):
             ax = self.fig.add_subplot()

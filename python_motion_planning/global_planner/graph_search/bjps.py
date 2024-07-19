@@ -31,12 +31,6 @@ class BJPS(AStar):
     """
     def __init__(self, start: tuple, goal: tuple, env: Env, heuristic_type: str = "euclidean") -> None:
         super().__init__(start, goal, env, heuristic_type)
-
-        # define the maximum search depth (bound)
-        self.bound = 8.0 # hard code for now
-
-        # step size (should be defined by the environment)
-        self.step_size = 1.0 # hard code for now
     
     def __str__(self) -> str:
         return "Bounded Jump Point Search(BJPS)"
@@ -57,6 +51,21 @@ class BJPS(AStar):
 
         while OPEN:
             node = heapq.heappop(OPEN)
+
+            # get the interval indecies we need to consider
+            current_index = int(node.g // self.jump_bound)
+
+            # create interval_indecies
+            interval_indecies = []
+            interval_indecies.append(current_index)
+            interval_indecies.append(current_index + 1) # when jumped, the agent could land in the next interval
+            interval_indecies.append(current_index + 2) # when jumped, the agent could land in the next interval
+
+            # update the environment
+            self.env.update(interval_indecies)
+
+            # debug visualization
+            # self.plot.animation([], str(self), 0, [])
 
             # exists in CLOSED list
             if node.current in CLOSED:
@@ -131,7 +140,7 @@ class BJPS(AStar):
         # check if the new node is within the boundary
         dist = self.dist(new_node, jump_point)
         direction_dist = self.dist(motion, Node((0, 0), None, 1, None))
-        if dist + direction_dist > self.bound:
+        if dist + direction_dist > self.jump_bound:
             return new_node 
             
         # if exists forced neighbor
