@@ -30,11 +30,12 @@ class Node(object):
         >>> node1 != node3
         >>> True
     """
-    def __init__(self, current: tuple, parent: tuple = None, g: float = 0, h: float = 0) -> None:
+    def __init__(self, current: tuple, parent: tuple = None, g: float = 0, h: float = 0, weight: float = 5.0) -> None:
         self.current = current
         self.parent = parent
         self.g = g
         self.h = h
+        self.weight = weight
     
     def __add__(self, node):
         assert isinstance(node, Node)
@@ -50,8 +51,8 @@ class Node(object):
 
     def __lt__(self, node) -> bool:
         assert isinstance(node, Node)
-        return self.g + self.h < node.g + node.h or \
-                (self.g + self.h == node.g + node.h and self.h < node.h)
+        return self.g + self.weight * self.h < node.g + node.weight * node.h or \
+                (self.g + self.weight * self.h == node.g + node.weight * node.h and self.weight * self.h < node.weight * node.h)
 
     def __hash__(self) -> int:
         return hash(self.current)
