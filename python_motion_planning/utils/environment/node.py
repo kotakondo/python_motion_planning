@@ -30,7 +30,7 @@ class Node(object):
         >>> node1 != node3
         >>> True
     """
-    def __init__(self, current: tuple, parent: tuple = None, g: float = 0, h: float = 0, weight: float = 5.0) -> None:
+    def __init__(self, current: tuple, parent: tuple = None, g: float = 0, h: float = 0, weight: float = 1.0) -> None:
         self.current = current
         self.parent = parent
         self.g = g
@@ -39,18 +39,22 @@ class Node(object):
     
     def __add__(self, node):
         assert isinstance(node, Node)
-        return Node((self.x + node.x, self.y + node.y), self.parent, self.g + node.g, self.h)
+        assert self.weight == node.weight # weight should be the same
+        return Node((self.x + node.x, self.y + node.y), self.parent, self.g + node.g, self.h, self.weight)
 
     def __eq__(self, node) -> bool:
         if not isinstance(node, Node):
             return False
+        assert self.weight == node.weight # weight should be the same
         return self.current == node.current
     
     def __ne__(self, node) -> bool:
+        assert self.weight == node.weight # weight should be the same
         return not self.__eq__(node)
 
     def __lt__(self, node) -> bool:
         assert isinstance(node, Node)
+        assert self.weight == node.weight # weight should be the same
         return self.g + self.weight * self.h < node.g + node.weight * node.h or \
                 (self.g + self.weight * self.h == node.g + node.weight * node.h and self.weight * self.h < node.weight * node.h)
 

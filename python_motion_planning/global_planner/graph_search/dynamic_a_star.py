@@ -6,16 +6,18 @@
 """
 import heapq
 import math
+from math import sqrt
 import numpy as np
 import time
+import tqdm
 
 from .graph_search import GraphSearcher
 from python_motion_planning.utils import Env, Node
 
 
-class AStar(GraphSearcher):
+class DynamicAStar(GraphSearcher):
     """
-    Class for A* motion planning.
+    Class for Dynamic A* motion planning.
 
     Parameters:
         start (tuple): start point coordinate
@@ -44,11 +46,11 @@ class AStar(GraphSearcher):
         self.weight = 1.0
 
     def __str__(self) -> str:
-        return "A*"
+        return "Dynamic A*"
 
     def plan(self) -> tuple:
         """
-        A* motion plan function.
+        Dynamic A* motion plan function.
 
         Returns:
             cost (float): path cost
@@ -62,6 +64,20 @@ class AStar(GraphSearcher):
 
         while OPEN:
             node = heapq.heappop(OPEN)
+
+            # get the interval indecies we need to consider
+            current_index = int(node.g // self.jump_bound)
+
+            # create interval_indecies
+            interval_indecies = []
+            interval_indecies.append(current_index)
+
+            # a bit conservative here but if the agent takes the next step diagonally, it could add sqrt(2) to the cost, and if that exceeds the jump_bound, the agent could land in the next interval
+            if (node.g + math.sqrt(2)) // self.jump_bound > current_index:
+                interval_indecies.append(current_index + 1)
+
+            # update the environment
+            self.env.update(interval_indecies)
 
             # exists in CLOSED list
             if node.current in CLOSED:
@@ -143,29 +159,8 @@ class AStar(GraphSearcher):
         # flip the path list
         path = path[::-1]
 
-        # get interpolated path 
-        # currently the path only contrains the nodes; we need to interpolate the path
-        interpolated_path = []
-        interpolated_path.append(path[0])
-        for current_node_idx, current_node in enumerate(path[:-1]):
-
-            next_node = path[current_node_idx + 1]
-
-            # determine the direction of the path
-            direction = (next_node[0] - current_node[0], next_node[1] - current_node[1])
-            
-            # check if the path is horizontal, vertical, or diagonal
-            motion = (direction[0] // abs(direction[0]) if direction[0] != 0 else 0, direction[1] // abs(direction[1]) if direction[1] != 0 else 0)
-
-            # initialize interpolated node
-            interpolated_node = current_node
-
-            # add interpolated nodes until the next node
-            while interpolated_node != next_node:
-                interpolated_node = (interpolated_node[0] + motion[0], interpolated_node[1] + motion[1])
-                interpolated_path.append(interpolated_node)
-        
-        print("interpolated_path: ", interpolated_path)
+        # in A*, the path is already interpolated
+        interpolated_path = path.copy()
 
         # visualization colors
         # generate random colors
@@ -206,12 +201,56 @@ class AStar(GraphSearcher):
                     break
 
             # debug
-            # self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+            self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
 
-        print("interval_paths: ", interval_paths)
+        # print("interval_paths: ", interval_paths)
 
         # debug
         self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
 
         # static animation
         # self.plot.animation(path, str(self), cost, expand)
+
+    def benchmarking_run(self, num_runs: int, bound: float, weight: float) -> tuple:
+        """
+        Benchmarking running.
+        """
+
+        # set class variable
+        self.jump_bound = bound
+        self.weight = weight
+
+        # change start and goal's weight
+        self.start.weight = self.weight
+        self.goal.weight = self.weight
+
+        # change motions' weight
+        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
+                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
+                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
+                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
+
+        # initialize lists
+        cost_list = np.zeros(num_runs)
+        time_list = np.zeros(num_runs)
+        success_list = np.zeros(num_runs)
+
+        # run the planner
+        for i in tqdm.tqdm(range(num_runs)):
+
+            # run the planner
+            start_time = time.time()
+            cost, path, _ = self.plan()
+            end_time = time.time()
+
+            # update the lists
+            cost_list[i] = cost
+            time_list[i] = end_time - start_time
+            success_list[i] = 1 if path[0] == self.goal.current else 0
+        
+        # take the average
+        avg_cost = np.mean(cost_list)
+        avg_time = np.mean(time_list)
+        success_rate = np.mean(success_list)
+        
+        return avg_cost, avg_time, success_rate

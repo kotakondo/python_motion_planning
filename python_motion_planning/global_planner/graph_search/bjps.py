@@ -5,9 +5,14 @@
 @update: 2024.6.23
 """
 import heapq
+import numpy as np
+from math import sqrt
+import time
+import tqdm
 
 from .a_star import AStar
 from python_motion_planning.utils import Env, Node
+
 
 class BJPS(AStar):
     """
@@ -132,14 +137,14 @@ class BJPS(AStar):
         # diagonal
         if motion.x and motion.y:
             # if exists jump point at horizontal or vertical
-            x_dir = Node((motion.x, 0), None, 1, None)
-            y_dir = Node((0, motion.y), None, 1, None)
+            x_dir = Node((motion.x, 0), None, 1, None, self.weight)
+            y_dir = Node((0, motion.y), None, 1, None, self.weight)
             if self.jump(new_node, x_dir, jump_point) or self.jump(new_node, y_dir, jump_point):
                 return new_node
         
         # check if the new node is within the boundary
         dist = self.dist(new_node, jump_point)
-        direction_dist = self.dist(motion, Node((0, 0), None, 1, None))
+        direction_dist = self.dist(motion, Node((0, 0), None, 1, None, self.weight))
         if dist + direction_dist > self.jump_bound:
             return new_node 
             
@@ -192,3 +197,46 @@ class BJPS(AStar):
         
         return False
 
+    def benchmarking_run(self, num_runs: int, bound: float, weight: float) -> tuple:
+        """
+        Benchmarking running.
+        """
+
+        # set class variable
+        self.jump_bound = bound
+        self.weight = weight
+
+        # change start and goal's weight
+        self.start.weight = self.weight
+        self.goal.weight = self.weight
+
+        # change motions' weight
+        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
+                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
+                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
+                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
+
+        # initialize lists
+        cost_list = np.zeros(num_runs)
+        time_list = np.zeros(num_runs)
+        success_list = np.zeros(num_runs)
+
+        # run the planner
+        for i in tqdm.tqdm(range(num_runs)):
+
+            # run the planner
+            start_time = time.time()
+            cost, path, _ = self.plan()
+            end_time = time.time()
+
+            # update the lists
+            cost_list[i] = cost
+            time_list[i] = end_time - start_time
+            success_list[i] = 1 if path[0] == self.goal.current else 0
+        
+        # take the average
+        avg_cost = np.mean(cost_list)
+        avg_time = np.mean(time_list)
+        success_rate = np.mean(success_list)
+        
+        return avg_cost, avg_time, success_rate

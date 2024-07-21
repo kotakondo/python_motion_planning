@@ -1,4 +1,5 @@
 from .a_star import AStar
+from .dynamic_a_star import DynamicAStar
 from .dijkstra import Dijkstra
 from .gbfs import GBFS
 from .jps import JPS
@@ -14,6 +15,7 @@ from .s_theta_star import SThetaStar
 # from .hybrid_a_star import HybridAStar
 
 __all__ = ["AStar",
+           "DynamicAStar",
            "Dijkstra",
            "GBFS",
            "JPS",

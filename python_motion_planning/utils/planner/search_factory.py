@@ -13,6 +13,8 @@ class SearchFactory(object):
     def __call__(self, planner_name, **config):
         if planner_name == "a_star":
             return AStar(**config)
+        elif planner_name == "dynamic_a_star":
+            return DynamicAStar(**config)
         elif planner_name == "dijkstra":
             return Dijkstra(**config)
         elif planner_name == "gbfs":
