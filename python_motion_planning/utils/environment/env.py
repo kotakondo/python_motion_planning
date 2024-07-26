@@ -48,8 +48,7 @@ class Grid(Env):
         self.motions = [Node((-1, 0), None, 1, None), Node((-1, 1),  None, sqrt(2), None),
                         Node((0, 1),  None, 1, None), Node((1, 1),   None, sqrt(2), None),
                         Node((1, 0),  None, 1, None), Node((1, -1),  None, sqrt(2), None),
-                        Node((0, -1), None, 1, None), Node((-1, -1), None, sqrt(2), None),
-                        Node((0, 0), None, 1, None, 1.0)]
+                        Node((0, -1), None, 1, None), Node((-1, -1), None, sqrt(2), None)]
         
         # obstacles
         self.static_obstacles = None

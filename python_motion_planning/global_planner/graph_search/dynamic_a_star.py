@@ -132,22 +132,6 @@ class DynamicAStar(AStar):
         # we can only wait if there is an obstacle around the current node
         return [node + motion for motion in self.motions if not self.isCollisionModified(node, node + motion)]
 
-    def isCollisionModified(self, node1: Node, node2: Node) -> bool:
-        """
-        Judge collision when moving from node1 to node2.
-
-        Parameters:
-            node1 (Node): node 1
-            node2 (Node): node 2
-
-        Returns:
-            collision (bool): True if collision exists else False
-        """
-        if node1.current in self.obstacles or node2.current in self.obstacles:
-            return True
-        else:
-            return False
-
     def run(self):
         """
         Running both planning and animation.
