@@ -30,7 +30,7 @@ class Node(object):
         >>> node1 != node3
         >>> True
     """
-    def __init__(self, current: tuple, parent: tuple = None, g: float = 0, h: float = 0, weight: float = 1.0) -> None:
+    def __init__(self, current: tuple, parent = None, g: float = 0, h: float = 0, weight: float = 1.0) -> None:
         self.current = current
         self.parent = parent
         self.g = g
@@ -55,17 +55,20 @@ class Node(object):
     def __lt__(self, node) -> bool:
         assert isinstance(node, Node)
         assert self.weight == node.weight # weight should be the same
-        return self.g + self.weight * self.h < node.g + node.weight * node.h or \
-                (self.g + self.weight * self.h == node.g + node.weight * node.h and self.weight * self.h < node.weight * node.h)
+        return self.f < node.f or (self.f == node.f and self.f - self.g < node.f - node.g)
 
     def __hash__(self) -> int:
         return hash(self.current)
 
     def __str__(self) -> str:
-        return "Node({}, {}, {}, {})".format(self.current, self.parent, self.g, self.h)
+        return "Node({}, {}, {}, {}, {})\n".format(self.current, self.parent, self.g, self.h, self.f)
 
     def __repr__(self) -> str:
         return self.__str__()
+    
+    @property
+    def f(self) -> float:
+        return self.g + self.weight * self.h
     
     @property
     def x(self) -> float:
@@ -78,13 +81,13 @@ class Node(object):
     @property
     def px(self) -> float:
         if self.parent:
-            return self.parent[0]
+            return self.parent.current[0]
         else:
             return None
 
     @property
     def py(self) -> float:
         if self.parent:
-            return self.parent[1]
+            return self.parent.current[1]
         else:
             return None

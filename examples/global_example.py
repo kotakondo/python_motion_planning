@@ -22,13 +22,19 @@ if __name__ == '__main__':
     args.add_argument("-s", "--search", type=str, default="bjps", help="search algorithm")
     search_algorithm = args.parse_args().search
     
+    # environment parameters
+    bound = 5.0 # length of each interval (jump bound in BJPS)
+
     # build environment
     start = (5, 5)
     goal = (45, 5)
-    env = Grid(51, 31)
+    env = Grid(51, 31, bound)
     
+    # planner parameters
+    weight = 1.0
+
     # creat planner
-    planner = search_factory(search_algorithm, start=start, goal=goal, env=env)
+    planner = search_factory(search_algorithm, start=start, goal=goal, env=env, bound=bound, weight=weight)
     # planner = search_factory("a_star", start=start, goal=goal, env=env)
     # planner = search_factory("dijkstra", start=start, goal=goal, env=env)
     # planner = search_factory("gbfs", start=start, goal=goal, env=env)

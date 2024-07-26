@@ -41,13 +41,13 @@ class Plot:
     
     def dynamic_animation(self, paths: list[list], name: str, cost: float = None, expand: list = None, colors: list = None, history_pose: list = None,
                   predict_path: list = None, lookahead_pts: list = None, cost_curve: list = None,
-                  ellipse: np.ndarray = None) -> None:
-        
+                  ellipse: np.ndarray = None, fig_name: str = None) -> None:
+
         name = name + "\ncost: " + str(cost) if cost else name
 
         for path_idx, path in enumerate(paths):
-
-            self.plotEnv(name, path_idx, colors[path_idx])
+            
+            self.plotEnv(name, path_idx, colors[path_idx]) if path_idx == len(paths) - 1 else None
             if expand is not None:
                 self.plotExpand(expand)
             if history_pose is not None:
@@ -62,9 +62,10 @@ class Plot:
             if ellipse is not None:
                 self.plotEllipse(ellipse)
 
-        # plt.show()
-        # save the figure
-        plt.savefig(f"/home/kkondo/Downloads/tmp/figure{len(paths)}.png")
+        plt.show()
+        # save fig to png
+        plt.savefig(f"/home/kkondo/Downloads/tmp/{fig_name if fig_name else 'tmp.png'}")
+        plt.close()
 
     def plotEnv(self, name: str, interval_idx: int = None, color = "black") -> None:
         '''
@@ -81,17 +82,17 @@ class Plot:
             
             if interval_idx is not None:
                 plt.title(name + "\ninterval index: " + str(interval_idx))
-                dynamic_obstacles, static_obstacles = self.env.get_obstacles_from_interval_index(interval_idx)
+                dynamic_obstacles, static_obstacles = self.env.get_obstacles_from_interval_index_for_plot(interval_idx)
                 
                 # static obstacles
                 obs_x = [x[0] for x in static_obstacles]
                 obs_y = [x[1] for x in static_obstacles]
-                plt.plot(obs_x, obs_y, "sk")
+                plt.scatter(obs_x, obs_y, color='black', marker='s')
 
                 # dynamic obstacles
                 obs_x = [x[0] for x in dynamic_obstacles]
                 obs_y = [x[1] for x in dynamic_obstacles]
-                plt.plot(obs_x, obs_y, color=color, marker='s', alpha=0.5)
+                plt.scatter(obs_x, obs_y, color=color, marker='s', alpha=0.5)
             else:
                 obs_x = [x[0] for x in self.env.obstacles]
                 obs_y = [x[1] for x in self.env.obstacles]

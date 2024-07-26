@@ -78,7 +78,7 @@ class AStar(GraphSearcher):
                 if node_n.current in CLOSED:
                     continue
                 
-                node_n.parent = node.current
+                node_n.parent = node
                 node_n.h = self.h(node_n, self.goal)
 
                 # goal found
@@ -120,7 +120,7 @@ class AStar(GraphSearcher):
         node = closed_list[self.goal.current]
         path = [node.current]
         while node != self.start:
-            node_parent = closed_list[node.parent]
+            node_parent = closed_list[node.parent.current]
             cost += self.dist(node, node_parent)
             node = node_parent
             path.append(node.current)
@@ -137,11 +137,138 @@ class AStar(GraphSearcher):
 
         print("cost: ", cost)
         print("time: ", end_time - start_time)
+        print("path: ", path)
 
-        # dynamic animation
+        # save the image
+        self.save_final_path_figure(path, cost, f"{self}_bound_{self.jump_bound}_weight_{self.weight}.png")
+    
+    def get_current_index(self, node: Node) -> tuple:
+        """
+        we need to track which interval the agent is in by considering the path it has traversed 
+        example 
+        interval 0: [0, 4.2]
+        interval 1: [4.2, 9.3]
+        interval 2: if we do g // 5.0, which is 9.3 // 5.0 = 1. But it's actually in interval 2 not 1 
 
-        # flip the path list
+        Parameters:
+            node (Node): current node
+
+        Returns:
+            current_index (int): current index
+        """
+
+        # get all the parents of the node
+
+        current_node_parent = node.parent
+        path = []
+        path.append(node)
+
+        while current_node_parent:
+            path.append(current_node_parent)
+            current_node_parent = current_node_parent.parent
+
+        current_node_index, total_time_so_far_interval = self.get_current_index_from_path(path)
+
+        return current_node_index, total_time_so_far_interval
+    
+    def get_current_index_from_path(self, path: list) -> tuple:
+        """
+        Get the current index of the node.
+
+        Parameters:
+            path (list): path
+
+        Returns:
+            current_index (int): current index
+        """
+
+        # flip the path list (so that it will start from the start node)
         path = path[::-1]
+
+        # get the correct index
+        current_node_index = 0
+        total_time = 0
+        while len(path) > 1:
+
+            # get the interval index
+            for i in range(len(path) - 1):
+
+                # get the next node
+                current_node = path[i]
+                next_node = path[i + 1]
+
+                # check if the next node is in the same interval
+                total_time = total_time + self.compute_total_time(current_node, next_node)
+
+                if total_time > self.jump_bound:
+                    
+                    # get this interval path
+                    current_node_index = current_node_index + 1
+
+                    # remove the interval path from the interpolated path
+                    path = path[i+1:]
+
+                    total_time = total_time - self.jump_bound
+
+                    path = [] if next_node == path[-1] else path
+
+                    break
+
+                if next_node == path[-1]:
+
+                    path = []
+
+                    break
+
+        return current_node_index, total_time
+
+    def compute_total_time(self, node1: Node, node2: Node) -> tuple:
+        """
+        Compute the distance and wait time.
+
+        Parameters:
+            node1 (Node): node 1
+            node2 (Node): node 2
+
+        Returns:
+            dist (float): distance between node1 and node2
+            wait_time (float): wait time
+        """
+
+        total_time = math.sqrt((node2.current[0] - node1.current[0]) ** 2 + (node2.current[1] - node1.current[1]) ** 2) # + node2.wait_time
+
+        return total_time
+
+
+    def save_final_path_figure(self, path: list, cost: float, fig_name: str) -> None:
+        """
+        Save the final path as a figure.
+        """
+
+        # get interpolated path
+        interpolated_path = self.interpolate_path(path)
+
+        # generate random colors
+        colors = [np.random.rand(3,) for _ in range(100)]
+
+        # get interval path
+        interval_paths = self.get_interval_paths(interpolated_path, cost, colors)
+
+        # debug
+        self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors, fig_name=fig_name)
+
+    def interpolate_path(self, path: list) -> list:
+        """
+        Interpolrate path.
+
+        Parameters:
+            path (list): path
+
+        Returns:
+            interpolated_path (list): interpolated path
+        """
+        
+        path = path[::-1] # flip the path list for visualization
 
         # get interpolated path 
         # currently the path only contrains the nodes; we need to interpolate the path
@@ -164,20 +291,17 @@ class AStar(GraphSearcher):
             while interpolated_node != next_node:
                 interpolated_node = (interpolated_node[0] + motion[0], interpolated_node[1] + motion[1])
                 interpolated_path.append(interpolated_node)
-        
-        print("interpolated_path: ", interpolated_path)
 
-        # visualization colors
-        # generate random colors
-        colors = [np.random.rand(3,) for _ in range(100)]
+        return interpolated_path
+    
+    def get_interval_paths(self, interpolated_path: list, cost: float = 0, colors: list = []) -> list:
 
-        # get interval path
         interval_paths = []
-        while len(interpolated_path) > 0:
+        dist = 0
+        while len(interpolated_path) > 1:
 
             # get the interval index
-            dist = 0
-            for i in range(len(interpolated_path) - 1):
+            for i in range(len(interpolated_path) -1 ):
 
                 # get the next node
                 current_node = interpolated_path[i]
@@ -185,33 +309,80 @@ class AStar(GraphSearcher):
 
                 # check if the next node is in the same interval
                 dist = dist + math.sqrt((next_node[0] - current_node[0]) ** 2 + (next_node[1] - current_node[1]) ** 2)
+
                 if dist > self.jump_bound:
                     
                     # get this interval path
                     interval_paths.append(interpolated_path[:i+1])
 
                     # remove the interval path from the interpolated path
-                    interpolated_path = interpolated_path[i:]
+                    interpolated_path = interpolated_path[i+1:]
+
+                    dist = dist - self.jump_bound
+
+                    interpolated_path = [] if next_node == interpolated_path[-1] else interpolated_path
 
                     break
 
                 if next_node == interpolated_path[-1]:
-                        
-                    # get this interval path
-                    interval_paths.append(interpolated_path)
 
-                    # remove the interval path from the interpolated path
+                    interval_paths.append(interpolated_path)
                     interpolated_path = []
 
                     break
 
-            # debug
-            # self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+            # connect interval paths for visualization
+            self.connect_intervals_for_visualization(interval_paths)
 
-        print("interval_paths: ", interval_paths)
+            # debug (visualize each interval)
+            self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
 
-        # debug
-        self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+        # connect interval paths for visualization
+        self.connect_intervals_for_visualization(interval_paths)
 
-        # static animation
-        # self.plot.animation(path, str(self), cost, expand)
+        return interval_paths
+    
+    def connect_intervals_for_visualization(self, interval_paths: list) -> list:
+        """
+        Connect intervals for visualization.
+
+        Parameters:
+            interval_paths (list): interval paths
+
+        """
+
+        for idx in range(1, len(interval_paths)):
+            interval_paths[idx].insert(0, interval_paths[idx - 1][-1])
+    
+    def benchmarking_run(self, num_runs: int, save_fig: bool) -> tuple:
+        """
+        Benchmarking running.
+        """
+
+        # initialize lists
+        cost_list = np.zeros(num_runs)
+        time_list = np.zeros(num_runs)
+        success_list = np.zeros(num_runs)
+
+        # run the planner
+        for i in range(num_runs):
+
+            # run the planner
+            start_time = time.time()
+            cost, path, _ = self.plan()
+            end_time = time.time()
+
+            # update the lists
+            cost_list[i] = cost
+            time_list[i] = end_time - start_time
+            success_list[i] = 1 if path[0] == self.goal.current else 0
+
+            # save the image
+            self.save_final_path_figure(path, cost, f"{self}_bound_{self.jump_bound}_weight_{self.weight}.png") if save_fig else None
+        
+        # take the average
+        avg_cost = np.mean(cost_list)
+        avg_time = np.mean(time_list)
+        success_rate = np.mean(success_list)
+        
+        return avg_cost, avg_time, success_rate

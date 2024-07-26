@@ -9,13 +9,12 @@ import math
 from math import sqrt
 import numpy as np
 import time
-import tqdm
 
-from .graph_search import GraphSearcher
+from .a_star import AStar
 from python_motion_planning.utils import Env, Node
+import matplotlib.pyplot as plt
 
-
-class DynamicAStar(GraphSearcher):
+class DynamicAStar(AStar):
     """
     Class for Dynamic A* motion planning.
 
@@ -35,15 +34,22 @@ class DynamicAStar(GraphSearcher):
     References:
         [1] A Formal Basis for the heuristic Determination of Minimum Cost Paths
     """
-    def __init__(self, start: tuple, goal: tuple, env: Env, heuristic_type: str = "euclidean") -> None:
+    def __init__(self, start: tuple, goal: tuple, env: Env, bound: float, weight: float, heuristic_type: str = "euclidean") -> None:
         super().__init__(start, goal, env, heuristic_type)
 
-        # only for BJPS
-        # define the maximum search depth (bound)
-        self.jump_bound = 5.0 # hard code for now
+        # set class variable
+        self.jump_bound = bound
+        self.weight = weight
 
-        # weight for g = g + weight * h
-        self.weight = 1.0
+        # change start and goal's weight
+        self.start.weight = self.weight
+        self.goal.weight = self.weight
+
+        # change motions' weight
+        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
+                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
+                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
+                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
 
     def __str__(self) -> str:
         return "Dynamic A*"
@@ -63,24 +69,25 @@ class DynamicAStar(GraphSearcher):
         CLOSED = dict()
 
         while OPEN:
+
+            # pop the node with the smallest f value
             node = heapq.heappop(OPEN)
 
             # get the interval indecies we need to consider
-            current_index = int(node.g // self.jump_bound)
+            current_index, total_time_so_far_interval = self.get_current_index(node)
 
             # create interval_indecies
             interval_indecies = []
-            interval_indecies.append(current_index)
 
-            # a bit conservative here but if the agent takes the next step diagonally, it could add sqrt(2) to the cost, and if that exceeds the jump_bound, the agent could land in the next interval
-            if (node.g + math.sqrt(2)) // self.jump_bound > current_index:
-                interval_indecies.append(current_index + 1)
+            # a bit conservative here but if the agent takes the next step diagonally, it could add 1.0 to the cost, and if that exceeds the jump_bound, the agent could land in the next interval
+            interval_indecies.append(current_index) if (total_time_so_far_interval + 1.0) < self.jump_bound else interval_indecies.append(current_index + 1)
 
             # update the environment
             self.env.update(interval_indecies)
+            self.obstacles = self.env.obstacles
 
             # exists in CLOSED list
-            if node.current in CLOSED:
+            if node.current in CLOSED:                
                 continue
 
             # goal found
@@ -89,12 +96,15 @@ class DynamicAStar(GraphSearcher):
                 cost, path = self.extractPath(CLOSED)
                 return cost, path, list(CLOSED.values())
 
-            for node_n in self.getNeighbor(node):                
+            # get neighbors
+            for node_n in self.getNeighbor(node):    
+
                 # exists in CLOSED list
                 if node_n.current in CLOSED:
                     continue
                 
-                node_n.parent = node.current
+                # update node_n
+                node_n.parent = node
                 node_n.h = self.h(node_n, self.goal)
 
                 # goal found
@@ -107,7 +117,7 @@ class DynamicAStar(GraphSearcher):
 
             CLOSED[node.current] = node
         return [], [], []
-
+    
     def getNeighbor(self, node: Node) -> list:
         """
         Find neighbors of node.
@@ -118,29 +128,25 @@ class DynamicAStar(GraphSearcher):
         Returns:
             neighbors (list): neighbors of current node
         """
-        return [node + motion for motion in self.motions
-                if not self.isCollision(node, node + motion)]
 
-    def extractPath(self, closed_list: dict) -> tuple:
+        # we can only wait if there is an obstacle around the current node
+        return [node + motion for motion in self.motions if not self.isCollisionModified(node, node + motion)]
+
+    def isCollisionModified(self, node1: Node, node2: Node) -> bool:
         """
-        Extract the path based on the CLOSED list.
+        Judge collision when moving from node1 to node2.
 
         Parameters:
-            closed_list (dict): CLOSED list
+            node1 (Node): node 1
+            node2 (Node): node 2
 
         Returns:
-            cost (float): the cost of planned path
-            path (list): the planning path
+            collision (bool): True if collision exists else False
         """
-        cost = 0
-        node = closed_list[self.goal.current]
-        path = [node.current]
-        while node != self.start:
-            node_parent = closed_list[node.parent]
-            cost += self.dist(node, node_parent)
-            node = node_parent
-            path.append(node.current)
-        return cost, path
+        if node1.current in self.obstacles or node2.current in self.obstacles:
+            return True
+        else:
+            return False
 
     def run(self):
         """
@@ -154,103 +160,5 @@ class DynamicAStar(GraphSearcher):
         print("cost: ", cost)
         print("time: ", end_time - start_time)
 
-        # dynamic animation
-
-        # flip the path list
-        path = path[::-1]
-
-        # in A*, the path is already interpolated
-        interpolated_path = path.copy()
-
-        # visualization colors
-        # generate random colors
-        colors = [np.random.rand(3,) for _ in range(100)]
-
-        # get interval path
-        interval_paths = []
-        while len(interpolated_path) > 0:
-
-            # get the interval index
-            dist = 0
-            for i in range(len(interpolated_path) - 1):
-
-                # get the next node
-                current_node = interpolated_path[i]
-                next_node = interpolated_path[i + 1]
-
-                # check if the next node is in the same interval
-                dist = dist + math.sqrt((next_node[0] - current_node[0]) ** 2 + (next_node[1] - current_node[1]) ** 2)
-                if dist > self.jump_bound:
-                    
-                    # get this interval path
-                    interval_paths.append(interpolated_path[:i+1])
-
-                    # remove the interval path from the interpolated path
-                    interpolated_path = interpolated_path[i:]
-
-                    break
-
-                if next_node == interpolated_path[-1]:
-                        
-                    # get this interval path
-                    interval_paths.append(interpolated_path)
-
-                    # remove the interval path from the interpolated path
-                    interpolated_path = []
-
-                    break
-
-            # debug
-            self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
-
-        # print("interval_paths: ", interval_paths)
-
-        # debug
-        self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
-
-        # static animation
-        # self.plot.animation(path, str(self), cost, expand)
-
-    def benchmarking_run(self, num_runs: int, bound: float, weight: float) -> tuple:
-        """
-        Benchmarking running.
-        """
-
-        # set class variable
-        self.jump_bound = bound
-        self.weight = weight
-
-        # change start and goal's weight
-        self.start.weight = self.weight
-        self.goal.weight = self.weight
-
-        # change motions' weight
-        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
-                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
-                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
-                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
-
-        # initialize lists
-        cost_list = np.zeros(num_runs)
-        time_list = np.zeros(num_runs)
-        success_list = np.zeros(num_runs)
-
-        # run the planner
-        for i in tqdm.tqdm(range(num_runs)):
-
-            # run the planner
-            start_time = time.time()
-            cost, path, _ = self.plan()
-            end_time = time.time()
-
-            # update the lists
-            cost_list[i] = cost
-            time_list[i] = end_time - start_time
-            success_list[i] = 1 if path[0] == self.goal.current else 0
-        
-        # take the average
-        avg_cost = np.mean(cost_list)
-        avg_time = np.mean(time_list)
-        success_rate = np.mean(success_list)
-        
-        return avg_cost, avg_time, success_rate
+        # save the image
+        self.save_final_path_figure(path, cost, f"{self}_bound_{self.jump_bound}_weight_{self.weight}.png")

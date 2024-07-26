@@ -6,6 +6,7 @@
 """
 
 import matplotlib.pyplot as plt
+from python_motion_planning.utils.data_analysis.Params import Params
 
 class BenchmarkingResults:
 
@@ -41,27 +42,27 @@ class BenchmarkingResults:
     def get_success_rate(self):
         return self.success_rate
 
-def plot_results(bounds_list, bjps_best_nodes: set, dynamic_a_star_best_nodes: set, title: str, figure_name: str):
+def plot_results(bound_list, bjps_best_nodes: set, dynamic_a_star_best_nodes: set, title: str, figure_name: str):
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 6))
     
     bjps_node_list = []
     dynamic_a_star_node_list = []
 
-    for bound in bounds_list:
+    for bound in bound_list:
         
         bjps_node_list.append(bjps_best_nodes[f"{bound}"])
         dynamic_a_star_node_list.append(dynamic_a_star_best_nodes[f"{bound}"])
         
     # plot the best cost for each bound
-    axes[0].plot(bounds_list, [node.get_cost() for node in bjps_node_list], "go-", label="BJPS")
-    axes[0].plot(bounds_list, [node.get_cost() for node in dynamic_a_star_node_list], "ro-", label="Dynamic A*")
+    axes[0].plot(bound_list, [node.get_cost() for node in bjps_node_list], "go-", label="BJPS")
+    axes[0].plot(bound_list, [node.get_cost() for node in dynamic_a_star_node_list], "ro-", label="Dynamic A*")
     axes[0].set_title(title)
 
     # plot the cost for each bound
     
-    axes[1].plot(bounds_list, [node.get_time() for node in bjps_node_list], "go-", label="BJPS")
-    axes[1].plot(bounds_list, [node.get_time() for node in dynamic_a_star_node_list], "ro-", label="Dynamic A*")
+    axes[1].plot(bound_list, [node.get_time() for node in bjps_node_list], "go-", label="BJPS")
+    axes[1].plot(bound_list, [node.get_time() for node in dynamic_a_star_node_list], "ro-", label="Dynamic A*")
 
     axes[1].set_xlabel("Bound")
 
@@ -75,7 +76,6 @@ def plot_results(bounds_list, bjps_best_nodes: set, dynamic_a_star_best_nodes: s
 
     # save the figure
     plt.savefig(f"/home/kkondo/Downloads/tmp/benchmark/{figure_name}.png")
-    
 
 def main():
     
@@ -107,16 +107,17 @@ def main():
     colors = ["r", "b"]
 
     # list of bounds and weights
-    bounds_list = [5.0, 7.5, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]
-    weights_list = [0.0001, 0.01, 0.1, 0.05, 0.02, 1.0, 5.0, 10.0, 50.0, 100.0, 1000.0]
+    params = Params()
+    bound_list = params.bound_list
+    weight_list = params.weight_list
 
     # for each bound, find the best weight for cost
-    bjps_best_nodes_wrt_cost = {f"{bound}": None for bound in bounds_list}
-    dynamic_a_star_best_nodes_wrt_cost = {f"{bound}": None for bound in bounds_list}
-    bjps_best_nodes_wrt_time = {f"{bound}": None for bound in bounds_list}
-    dynamic_a_star_best_nodes_wrt_time = {f"{bound}": None for bound in bounds_list}
+    bjps_best_nodes_wrt_cost = {f"{bound}": None for bound in bound_list}
+    dynamic_a_star_best_nodes_wrt_cost = {f"{bound}": None for bound in bound_list}
+    bjps_best_nodes_wrt_time = {f"{bound}": None for bound in bound_list}
+    dynamic_a_star_best_nodes_wrt_time = {f"{bound}": None for bound in bound_list}
 
-    for bound in bounds_list:
+    for bound in bound_list:
 
         # get nodes with the fixed bound
         fixed_bound_nodes = [node for node in list_nodes if node.get_bound() == bound]
@@ -149,10 +150,10 @@ def main():
                 dynamic_a_star_best_nodes_wrt_time[f"{bound}"] = dynamic_a_star_node
 
     # plot the results for best cost with respect to bound
-    plot_results(bounds_list, bjps_best_nodes_wrt_cost, dynamic_a_star_best_nodes_wrt_cost, "Best Cost and Corresponding Time for Each Bound", "best_cost")
+    plot_results(bound_list, bjps_best_nodes_wrt_cost, dynamic_a_star_best_nodes_wrt_cost, "Best Cost and Corresponding Time for Each Bound", "best_cost")
 
     # plot the results for best time with respect to bound
-    plot_results(bounds_list, bjps_best_nodes_wrt_time, dynamic_a_star_best_nodes_wrt_time, "Best Time and Corresponding Cost for Each Bound", "best_time")
+    plot_results(bound_list, bjps_best_nodes_wrt_time, dynamic_a_star_best_nodes_wrt_time, "Best Time and Corresponding Cost for Each Bound", "best_time")
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ import heapq
 import numpy as np
 from math import sqrt
 import time
-import tqdm
+import matplotlib.pyplot as plt
 
 from .a_star import AStar
 from python_motion_planning.utils import Env, Node
@@ -34,8 +34,22 @@ class BJPS(AStar):
     References:
         [1] Online Graph Pruning for Pathfinding On Grid Maps
     """
-    def __init__(self, start: tuple, goal: tuple, env: Env, heuristic_type: str = "euclidean") -> None:
+    def __init__(self, start: tuple, goal: tuple, env: Env, bound: float, weight: float, heuristic_type: str = "euclidean") -> None:
         super().__init__(start, goal, env, heuristic_type)
+
+        # set class variable
+        self.jump_bound = bound
+        self.weight = weight
+
+        # change start and goal's weight
+        self.start.weight = self.weight
+        self.goal.weight = self.weight
+
+        # change motions' weight
+        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
+                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
+                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
+                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
     
     def __str__(self) -> str:
         return "Bounded Jump Point Search(BJPS)"
@@ -58,19 +72,17 @@ class BJPS(AStar):
             node = heapq.heappop(OPEN)
 
             # get the interval indecies we need to consider
-            current_index = int(node.g // self.jump_bound)
+            current_index, dist_so_far_interval = self.get_current_index(node)
 
             # create interval_indecies
             interval_indecies = []
-            interval_indecies.append(current_index)
+            interval_indecies.append(current_index) if dist_so_far_interval + 1.0 < self.jump_bound else None # if any next step (when node.g + 1.0 (not 1.41)) will jump to the next interval, then we don't need to consider the current interval
             interval_indecies.append(current_index + 1) # when jumped, the agent could land in the next interval
             interval_indecies.append(current_index + 2) # when jumped, the agent could land in the next interval
 
             # update the environment
             self.env.update(interval_indecies)
-
-            # debug visualization
-            # self.plot.animation([], str(self), 0, [])
+            self.obstacles = self.env.obstacles
 
             # exists in CLOSED list
             if node.current in CLOSED:
@@ -84,19 +96,13 @@ class BJPS(AStar):
 
             jp_list = []
             for motion in self.motions:
+
                 jp = self.jump(node, motion, node)
                 # exists and not in CLOSED list
                 if jp and jp.current not in CLOSED:
-                    jp.parent = node.current
+                    jp.parent = node
                     jp.h = self.h(jp, self.goal)
                     jp_list.append(jp)
-                
-            # print the jump point added in this iteration
-            # debug
-            # print("parent: ", node.current)
-            # for idx, tmp in enumerate(jp_list):
-            #     print("jp: ", tmp.current)
-            #     print("dist: ", self.dist(tmp, node))
 
             for jp in jp_list:
                 # update OPEN list
@@ -120,11 +126,11 @@ class BJPS(AStar):
         Returns:
             jump_point (Node): jump point or None if searching fails
         """
+
         # explore a new node
         new_node = node + motion
-        new_node.parent = node.current
+        new_node.parent = node
         new_node.h = self.h(new_node, self.goal)
-
 
         # hit the obstacle
         if new_node.current in self.obstacles:
@@ -197,46 +203,19 @@ class BJPS(AStar):
         
         return False
 
-    def benchmarking_run(self, num_runs: int, bound: float, weight: float) -> tuple:
+    def run(self) -> tuple:
         """
-        Benchmarking running.
+        Running both planning and animation.
         """
-
-        # set class variable
-        self.jump_bound = bound
-        self.weight = weight
-
-        # change start and goal's weight
-        self.start.weight = self.weight
-        self.goal.weight = self.weight
-
-        # change motions' weight
-        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
-                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
-                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
-                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
-
-        # initialize lists
-        cost_list = np.zeros(num_runs)
-        time_list = np.zeros(num_runs)
-        success_list = np.zeros(num_runs)
 
         # run the planner
-        for i in tqdm.tqdm(range(num_runs)):
+        start_time = time.time()
+        cost, path, expand = self.plan()
+        end_time = time.time()
 
-            # run the planner
-            start_time = time.time()
-            cost, path, _ = self.plan()
-            end_time = time.time()
+        print("cost: ", cost)
+        print("time: ", end_time - start_time)
+        print("path: ", path)
 
-            # update the lists
-            cost_list[i] = cost
-            time_list[i] = end_time - start_time
-            success_list[i] = 1 if path[0] == self.goal.current else 0
-        
-        # take the average
-        avg_cost = np.mean(cost_list)
-        avg_time = np.mean(time_list)
-        success_rate = np.mean(success_list)
-        
-        return avg_cost, avg_time, success_rate
+        # save the image
+        self.save_final_path_figure(path, cost, f"bjps_bound_{self.jump_bound}_weight_{self.weight}.png")

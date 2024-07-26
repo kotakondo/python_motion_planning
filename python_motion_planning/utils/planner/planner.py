@@ -12,8 +12,8 @@ from ..plot.plot import Plot
 class Planner(ABC):
     def __init__(self, start: tuple, goal: tuple, env: Env) -> None:
         # plannig start and goal
-        self.start = Node(start, start, 0, 0)
-        self.goal = Node(goal, goal, 0, 0)
+        self.start = Node(start, None, 0, 0)
+        self.goal = Node(goal, None, 0, 0)
         # environment
         self.env = env
         # graph handler
