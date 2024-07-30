@@ -15,6 +15,10 @@ class SearchFactory(object):
             return AStar(**config)
         elif planner_name == "dynamic_a_star":
             return DynamicAStar(**config)
+        elif planner_name == "dynamic_a_star3d":
+            return DynamicAStar3D(**config)
+        elif planner_name == "a_star3d":
+            return AStar3D(**config)
         elif planner_name == "dijkstra":
             return Dijkstra(**config)
         elif planner_name == "gbfs":
@@ -23,6 +27,12 @@ class SearchFactory(object):
             return JPS(**config)
         elif planner_name == "bjps":
             return BJPS(**config)
+        elif planner_name == "bjps3d":
+            return BJPS3D(**config)
+        elif planner_name == "jps3d":
+            return JPS3D(**config)
+        elif planner_name == "djps3dpp":
+            return DJPS3DPP(**config)
         elif planner_name == "d_star":
             return DStar(**config)
         elif planner_name == "lpa_star":

@@ -41,16 +41,6 @@ class DynamicAStar(AStar):
         self.jump_bound = bound
         self.weight = weight
 
-        # change start and goal's weight
-        self.start.weight = self.weight
-        self.goal.weight = self.weight
-
-        # change motions' weight
-        self.motions = [Node((-1, 0), None, 1, None, self.weight), Node((-1, 1),  None, sqrt(2), None, self.weight),
-                        Node((0, 1),  None, 1, None, self.weight), Node((1, 1),   None, sqrt(2), None, self.weight),
-                        Node((1, 0),  None, 1, None, self.weight), Node((1, -1),  None, sqrt(2), None, self.weight),
-                        Node((0, -1), None, 1, None, self.weight), Node((-1, -1), None, sqrt(2), None, self.weight)]
-
     def __str__(self) -> str:
         return "Dynamic A*"
 

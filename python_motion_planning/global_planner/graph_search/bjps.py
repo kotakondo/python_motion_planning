@@ -128,6 +128,7 @@ class BJPS(AStar):
         """
 
         # explore a new node
+
         new_node = node + motion
         new_node.parent = node
         new_node.h = self.h(new_node, self.goal)

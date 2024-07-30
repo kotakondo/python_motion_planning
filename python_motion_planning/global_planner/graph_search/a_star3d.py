@@ -9,11 +9,10 @@ import math
 import numpy as np
 import time
 
-from .graph_search import GraphSearcher
-from python_motion_planning.utils import Env, Node
+from .graph_search3d import GraphSearcher3D
+from python_motion_planning.utils import Env3D, Node3D
 
-
-class AStar(GraphSearcher):
+class AStar3D(GraphSearcher3D):
     """
     Class for A* motion planning.
 
@@ -33,18 +32,14 @@ class AStar(GraphSearcher):
     References:
         [1] A Formal Basis for the heuristic Determination of Minimum Cost Paths
     """
-    def __init__(self, start: tuple, goal: tuple, env: Env, heuristic_type: str = "euclidean") -> None:
-        super().__init__(start, goal, env, heuristic_type)
+    def __init__(self, start: tuple, goal: tuple, env: Env3D, bound: float, heuristic_type: str = "euclidean", weight: float = 1.0) -> None:
+        super().__init__(start, goal, env, heuristic_type, weight)
 
-        # only for BJPS
-        # define the maximum search depth (bound)
-        self.jump_bound = 5.0 # hard code for now
-
-        # weight for g = g + weight * h
-        self.weight = 1.0
+        self.jump_bound = bound
+        self.weight = weight
 
     def __str__(self) -> str:
-        return "A*"
+        return "A* 3D"
 
     def plan(self) -> tuple:
         """
@@ -70,7 +65,7 @@ class AStar(GraphSearcher):
             # goal found
             if node == self.goal:
                 CLOSED[node.current] = node
-                cost, path = self.extractPath(CLOSED)
+                cost, path = self.extractNodePath(node)
                 return cost, path, list(CLOSED.values())
 
             for node_n in self.getNeighbor(node):                
@@ -92,7 +87,7 @@ class AStar(GraphSearcher):
             CLOSED[node.current] = node
         return [], [], []
 
-    def getNeighbor(self, node: Node) -> list:
+    def getNeighbor(self, node: Node3D) -> list:
         """
         Find neighbors of node.
 
@@ -105,6 +100,25 @@ class AStar(GraphSearcher):
         return [node + motion for motion in self.motions
                 if not self.isCollisionModified(node, node + motion)]
 
+    def extractNodePath(self, node: Node3D) -> tuple:
+        """
+        Extract the path based on the CLOSED list.
+
+        Parameters:
+            closed_list (dict): CLOSED list
+
+        Returns:
+            cost (float): the cost of planned path
+            path (list): the planning path
+        """
+        cost = node.g
+        path = [node]
+        parent = node.parent
+        while parent:
+            path.append(parent)
+            parent = parent.parent
+        return cost, path
+    
     def extractPath(self, closed_list: dict) -> tuple:
         """
         Extract the path based on the CLOSED list.
@@ -125,6 +139,21 @@ class AStar(GraphSearcher):
             node = node_parent
             path.append(node.current)
         return cost, path
+    
+    def extractAllNodes(self, closed_list: dict) -> list:
+        """
+        Extract all nodes from the CLOSED list.
+
+        Parameters:
+            closed_list (dict): CLOSED list
+
+        Returns:
+            all_nodes (list): all nodes in the CLOSED list
+        """
+        all_nodes = []
+        for node in closed_list.values():
+            all_nodes.append(node.current)
+        return all_nodes
 
     def run(self):
         """
@@ -132,17 +161,22 @@ class AStar(GraphSearcher):
         """
 
         start_time = time.time()
-        cost, path, expand = self.plan()
+        cost, node_path, _ = self.plan()
         end_time = time.time()
+
+        # get the path
+        path = [node.current for node in node_path]
+        path_with_wait_time = [(node.current, node.wait_time) for node in node_path]
 
         print("cost: ", cost)
         print("time: ", end_time - start_time)
-        print("path: ", path)
-
+        print("path_with_wait_time: ", path_with_wait_time)
+        
         # save the image
-        self.save_final_path_figure(path, cost, f"{self}_bound_{self.jump_bound}_weight_{self.weight}.png")
-    
-    def get_current_index(self, node: Node) -> tuple:
+        # self.save_final_path_figure(path, cost, f"{self}_bound_{self.jump_bound}_weight_{self.weight}.png")
+        self.plot.animation(path, str(self), cost)
+
+    def get_current_index(self, node: Node3D) -> tuple:
         """
         we need to track which interval the agent is in by considering the path it has traversed 
         example 
@@ -222,7 +256,7 @@ class AStar(GraphSearcher):
 
         return current_node_index, total_time
 
-    def compute_total_time(self, node1: Node, node2: Node) -> tuple:
+    def compute_total_time(self, node1: Node3D, node2: Node3D) -> tuple:
         """
         Compute the distance and wait time.
 
@@ -235,10 +269,9 @@ class AStar(GraphSearcher):
             wait_time (float): wait time
         """
 
-        total_time = math.sqrt((node2.current[0] - node1.current[0]) ** 2 + (node2.current[1] - node1.current[1]) ** 2) # + node2.wait_time
+        total_time = math.sqrt((node2.current[0] - node1.current[0]) ** 2 + (node2.current[1] - node1.current[1]) ** 2) + node2.wait_time
 
         return total_time
-
 
     def save_final_path_figure(self, path: list, cost: float, fig_name: str) -> None:
         """
@@ -246,7 +279,7 @@ class AStar(GraphSearcher):
         """
 
         # get interpolated path
-        interpolated_path = self.interpolate_path(path)
+        interpolated_path = self.env.interpolate_path(path)
 
         # generate random colors
         colors = [np.random.rand(3,) for _ in range(100)]
@@ -257,43 +290,6 @@ class AStar(GraphSearcher):
         # debug
         self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors, fig_name=fig_name)
 
-    def interpolate_path(self, path: list) -> list:
-        """
-        Interpolrate path.
-
-        Parameters:
-            path (list): path
-
-        Returns:
-            interpolated_path (list): interpolated path
-        """
-        
-        path = path[::-1] # flip the path list for visualization
-
-        # get interpolated path 
-        # currently the path only contrains the nodes; we need to interpolate the path
-        interpolated_path = []
-        interpolated_path.append(path[0])
-        for current_node_idx, current_node in enumerate(path[:-1]):
-
-            next_node = path[current_node_idx + 1]
-
-            # determine the direction of the path
-            direction = (next_node[0] - current_node[0], next_node[1] - current_node[1])
-            
-            # check if the path is horizontal, vertical, or diagonal
-            motion = (direction[0] // abs(direction[0]) if direction[0] != 0 else 0, direction[1] // abs(direction[1]) if direction[1] != 0 else 0)
-
-            # initialize interpolated node
-            interpolated_node = current_node
-
-            # add interpolated nodes until the next node
-            while interpolated_node != next_node:
-                interpolated_node = (interpolated_node[0] + motion[0], interpolated_node[1] + motion[1])
-                interpolated_path.append(interpolated_node)
-
-        return interpolated_path
-    
     def get_interval_paths(self, interpolated_path: list, cost: float = 0, colors: list = []) -> list:
 
         interval_paths = []
@@ -332,10 +328,10 @@ class AStar(GraphSearcher):
                     break
 
             # connect interval paths for visualization
-            self.connect_intervals_for_visualization(interval_paths)
+            # self.connect_intervals_for_visualization(interval_paths)
 
             # debug (visualize each interval)
-            self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
+            # self.plot.dynamic_animation(interval_paths, str(self), cost, [], colors)
 
         # connect interval paths for visualization
         self.connect_intervals_for_visualization(interval_paths)
@@ -369,7 +365,7 @@ class AStar(GraphSearcher):
 
             # run the planner
             start_time = time.time()
-            cost, path, _ = self.plan()
+            cost, _, path, _ = self.plan()
             end_time = time.time()
 
             # update the lists
@@ -386,3 +382,20 @@ class AStar(GraphSearcher):
         success_rate = np.mean(success_list)
         
         return avg_cost, avg_time, success_rate
+    
+    def update_env(self, node: Node3D) -> None:
+
+        # get the interval indecies we need to consider
+        inference_start = time.time()
+        current_index, dist_so_far_interval = self.get_current_index(node)
+
+        # create interval_indecies
+        interval_indecies = []
+        interval_indecies.append(current_index) if dist_so_far_interval + 1.0 < self.jump_bound else None # if any next step (when node.g + 1.0 (not 1.41)) will jump to the next interval, then we don't need to consider the current interval
+        interval_indecies.append(current_index + 1) # when jumped, the agent could land in the next interval
+        interval_indecies.append(current_index + 2) # when jumped, the agent could land in the next interval
+
+        # update the environment
+        self.env.update(interval_indecies)
+        self.obstacles = self.env.obstacles
+        self.inference_time += time.time() - inference_start
